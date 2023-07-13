@@ -1,11 +1,15 @@
 const apiKey = '8c95e0a5ca137d1c963e38c8d776b2ce';
+let weatherData = null;
 
 function fetchWeatherData(city) {
   const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&appid=${apiKey}`;
 
   return fetch(apiUrl)
     .then(response => response.json())
-    .then(data => processWeatherData(data))
+    .then(data => {
+      weatherData = processWeatherData(data);
+      return weatherData;
+    })
     .catch(error => {
       console.error('Error fetching weather data:', error);
     });
@@ -25,14 +29,15 @@ function processWeatherData(data) {
 
   for (let i = 0; i < forecastData.length; i += 8) {
     const forecastItem = forecastData[i];
-    const forecastDate = new Date(forecastItem.dt_txt);
-    const dayOfWeek = getDayOfWeek(forecastDate.getDay());
+    const forecastDate = forecastItem.dt_txt.split(' ')[0]; // Extracting the date from dt_txt
+    const dayOfWeek = getDayOfWeek(new Date(forecastItem.dt_txt).getDay());
     const forecastTemperature = forecastItem.main.temp;
     const forecastIcon = forecastItem.weather[0].icon;
     const forecastHumidity = forecastItem.main.humidity;
     const forecastWindSpeed = forecastItem.wind.speed;
     forecast.push({
       dayOfWeek,
+      date: forecastDate, // Adding the date property
       icon: forecastIcon,
       temperature: forecastTemperature,
       humidity: forecastHumidity,
@@ -54,6 +59,11 @@ function processWeatherData(data) {
 function getDayOfWeek(dayIndex) {
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return daysOfWeek[dayIndex];
+}
+
+function formatDate(date) {
+  const options = { month: 'short', day: 'numeric' };
+  return date.toLocaleDateString(undefined, options);
 }
 
 function displayCurrentWeather(data) {
@@ -102,7 +112,25 @@ function updateLiveTime(dateTimeElement) {
     const currentDate = new Date();
     const dateTime = `${currentDate.toLocaleDateString()} ${currentDate.toLocaleTimeString()}`;
     dateTimeElement.textContent = dateTime;
+
+    // Check if it's a new day and refresh forecast if true
+    if (currentDate.getHours() === 0 && currentDate.getMinutes() === 0 && currentDate.getSeconds() === 0) {
+      refreshForecast();
+    }
   }, 1000);
+}
+
+function refreshForecast() {
+  if (weatherData !== null) {
+    const city = weatherData.city;
+    fetchWeatherData(city)
+      .then(weatherData => {
+        displayForecast(weatherData);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+  }
 }
 
 function displayForecast(data) {
@@ -121,6 +149,7 @@ function displayForecast(data) {
     const forecastItem = `
       <li class="forecast-item">
         <div class="day-of-week">${forecast.dayOfWeek}</div>
+        <div class="date">${forecast.date}</div> <!-- Added the date -->
         <div class="icon">${getWeatherEmoji(forecast.icon)}</div>
         <div class="temperature">${convertToCelsius(forecast.temperature)}°F</div>
         <div class="humidity">${forecast.humidity}% Humidity</div>
@@ -212,6 +241,8 @@ function addToSearchHistory(city) {
 
 const searchForm = document.getElementById('search-form');
 searchForm.addEventListener('submit', handleFormSubmit);
+
+
 
 
 
